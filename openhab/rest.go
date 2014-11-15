@@ -33,7 +33,16 @@ func NewClient(url, user, pass string, sslverify bool) *Client {
 	return cl
 }
 
-func (cl *Client) request(method, url, body string, out interface{}) (err error) {
+type ReqType byte
+
+const (
+	NormalReq ReqType = iota
+	LongPolling
+	Streaming
+)
+
+// Needs to be updated for long-polling/streaming reqs (add a chan?)
+func (cl *Client) request(method, url, body string, out interface{}, reqType ReqType) (err error) {
 	var req *http.Request
 	if body != "" {
 		bodyBuffer := bytes.NewBuffer([]byte(body))
@@ -74,7 +83,7 @@ func (cl *Client) request(method, url, body string, out interface{}) (err error)
 // Get a list of Sitemaps
 func (cl *Client) Sitemaps() ([]Sitemap, error) {
 	resp := SitemapsResp{}
-	err := cl.request("GET", "/sitemaps", "", &resp)
+	err := cl.request("GET", "/sitemaps", "", &resp, NormalReq)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +94,7 @@ func (cl *Client) Sitemaps() ([]Sitemap, error) {
 // Get a single Sitemap
 func (cl *Client) Sitemap(name string) (*Sitemap, error) {
 	resp := Sitemap{}
-	err := cl.request("GET", "/sitemaps/"+name, "", &resp)
+	err := cl.request("GET", "/sitemaps/"+name, "", &resp, NormalReq)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +105,7 @@ func (cl *Client) Sitemap(name string) (*Sitemap, error) {
 // Get a sitemap page
 func (cl *Client) SitemapPage(name, page string) (*SitemapPage, error) {
 	resp := SitemapPage{}
-	err := cl.request("GET", "/sitemaps/"+name+"/"+page, "", &resp)
+	err := cl.request("GET", "/sitemaps/"+name+"/"+page, "", &resp, NormalReq)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +116,7 @@ func (cl *Client) SitemapPage(name, page string) (*SitemapPage, error) {
 // Get all of the items
 func (cl *Client) Items() ([]Item, error) {
 	resp := ItemsResp{}
-	err := cl.request("GET", "/items", "", &resp)
+	err := cl.request("GET", "/items", "", &resp, NormalReq)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +127,7 @@ func (cl *Client) Items() ([]Item, error) {
 // Get a single Item
 func (cl *Client) Item(name string) (*Item, error) {
 	resp := Item{}
-	err := cl.request("GET", "/items/"+name, "", &resp)
+	err := cl.request("GET", "/items/"+name, "", &resp, NormalReq)
 	if err != nil {
 		return nil, err
 	}
@@ -128,10 +137,20 @@ func (cl *Client) Item(name string) (*Item, error) {
 
 // Send a command to an item
 func (cl *Client) CommandItem(item, cmd string) error {
-	return cl.request("POST", "/items/"+item, cmd, nil)
+	return cl.request("POST", "/items/"+item, cmd, nil, NormalReq)
 }
 
 // Update the state of an item. Not really sure what this is for.
 func (cl *Client) UpdateItem(item, cmd string) error {
-	return cl.request("PUT", "/items/"+item, cmd, nil)
+	return cl.request("PUT", "/items/"+item, cmd, nil, NormalReq)
+}
+
+// Stub for long-polling item
+func (cl *Client) ItemLongPolling(item string) (chan Item, error) {
+	return nil, nil
+}
+
+// Stub for streaming item
+func (cl *Client) ItemStreaming(item string) (chan Item, error) {
+	return nil, nil
 }
