@@ -40,6 +40,19 @@ func (s *server) getMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+func (s *server) getPage(w http.ResponseWriter, r *http.Request) {
+	smap, err := s.Client.SitemapPage(mux.Vars(r)["map"], mux.Vars(r)["page"])
+	if err != nil {
+		oherr := err.(openhab.RestError)
+		http.Error(w, oherr.Text, oherr.Code)
+		return
+	}
+	err = json.NewEncoder(w).Encode(smap)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+}
 func (s *server) getItem(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	item, err := s.Client.Item(vars["item"])

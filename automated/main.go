@@ -2,8 +2,9 @@ package main
 
 import (
 	"log"
-	"net/http"
+	"net/url"
 	"os"
+	"regexp"
 
 	"github.com/SpeedHackers/automate-go/openhab"
 )
@@ -11,10 +12,19 @@ import (
 func main() {
 
 	srv := &server{}
-	srv.Client = openhab.NewClient(os.Getenv("OH_URL"),
+	url, err := url.Parse(os.Getenv("OH_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	oldbase := url.Scheme + "://" + url.Host
+
+	srv.Client = openhab.NewClient(url.String(),
 		os.Getenv("OH_USER"),
 		os.Getenv("OH_PASS"),
 		false)
 
-	log.Fatal(http.ListenAndServe(":8888", srv.setupRoutes()))
+	srv.rew = regexp.MustCompile(oldbase)
+	srv.Port = "8888"
+
+	log.Fatal(srv.Run())
 }

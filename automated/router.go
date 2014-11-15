@@ -2,13 +2,17 @@ package main
 
 import (
 	"net/http"
+	"regexp"
 
 	"github.com/SpeedHackers/automate-go/openhab"
 	"github.com/gorilla/mux"
 )
 
 type server struct {
-	Client *openhab.Client
+	Client  *openhab.Client
+	rew     *regexp.Regexp
+	Port    string
+	TLSPort string
 }
 
 func (s *server) setupRoutes() http.Handler {
@@ -22,11 +26,21 @@ func (s *server) setupRoutes() http.Handler {
 	maps := rest.PathPrefix("/sitemaps").Subrouter()
 	maps.HandleFunc("/", s.getMaps).Methods("GET")
 	maps.HandleFunc("/{map}", s.getMap).Methods("GET")
+	maps.HandleFunc("/{map}/{page}", s.getPage).Methods("GET")
 
 	items := rest.PathPrefix("/items").Subrouter()
 	items.HandleFunc("/", s.getItems).Methods("GET")
 	items.HandleFunc("/{item}", s.getItem).Methods("GET")
 	items.HandleFunc("/{item}", s.cmdItem).Methods("POST")
 
-	return logger(r)
+	return logger(s.rewriter(r))
+}
+
+func (s *server) Run() error {
+	ch := make(chan error)
+	routes := s.setupRoutes()
+	go func() {
+		ch <- http.ListenAndServe(":"+s.Port, routes)
+	}()
+	return <-ch
 }
