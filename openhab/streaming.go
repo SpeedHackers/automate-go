@@ -73,19 +73,6 @@ func (cl *Client) PageStreaming(smap, name string) (chan SitemapPage, chan struc
 	return ch, ctl
 }
 
-// Stub for long-polling item
-func (cl *Client) SitemapStreaming(smap string) (chan Sitemap, chan struct{}) {
-	ch := make(chan Sitemap)
-	stream, ctl := cl.streamPath("/sitemaps/"+smap, &Sitemap{})
-	go func() {
-		for v := range stream {
-			ch <- v.(Sitemap)
-		}
-		close(ch)
-	}()
-	return ch, ctl
-}
-
 // Create a channel to receive a new item on asynchronously
 func (cl *Client) ItemLongPolling(name string) chan Item {
 	ch := make(chan Item)
@@ -93,18 +80,6 @@ func (cl *Client) ItemLongPolling(name string) chan Item {
 		poll := cl.longPollPath("/items/"+name, &Item{})
 		v := <-poll
 		ch <- v.(Item)
-	}()
-
-	return ch
-}
-
-// Create a channel to receive a new item on asynchronously
-func (cl *Client) SitemapLongPolling(name string) chan Sitemap {
-	ch := make(chan Sitemap)
-	go func() {
-		poll := cl.longPollPath("/sitemaps/"+name, &Sitemap{})
-		v := <-poll
-		ch <- v.(Sitemap)
 	}()
 
 	return ch

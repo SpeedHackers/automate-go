@@ -3,19 +3,19 @@ package openhab
 import "encoding/json"
 
 type Link struct {
-	Type string `json:"@type"`
-	URL  string `json:"$"`
+	Type string `json:"@type,omitempty"`
+	URL  string `json:"$,omitempty"`
 }
 
 type RestBase struct {
-	Links []Link `json:"link"`
+	Links []Link `json:"link,omitempty"`
 }
 
 type Item struct {
-	Link  string `json:"link"`
-	Name  string `json:"name"`
-	State string `json:"state"`
-	Type  string `json:"type"`
+	Link  string `json:"link,omitempty"`
+	Name  string `json:"name,omitempty"`
+	State string `json:"state,omitempty"`
+	Type  string `json:"type,omitempty"`
 }
 
 type Items []Item
@@ -41,7 +41,7 @@ func (i *Items) UnmarshalJSON(bs []byte) error {
 
 type Sitemaps []Sitemap
 type SitemapsResp struct {
-	Sitemaps Sitemaps `json:"sitemap"`
+	Sitemaps Sitemaps `json:"sitemap,omitempty"`
 }
 
 func (s *Sitemaps) UnmarshalJSON(bs []byte) error {
@@ -61,9 +61,9 @@ func (s *Sitemaps) UnmarshalJSON(bs []byte) error {
 }
 
 type Sitemap struct {
-	Homepage *SitemapPage `json:"homepage"`
+	Homepage *SitemapPage `json:"homepage,omitempty"`
 	Label    string       `json:"label,omitempty"`
-	Link     string       `json:"link"`
+	Link     string       `json:"link,omitempty"`
 	Name     string       `json:"name,omitempty"`
 }
 
@@ -71,8 +71,8 @@ type Widget struct {
 	Icon          string       `json:"icon,omitempty"`
 	Item          *Item        `json:"item,omitempty"`
 	Label         string       `json:"label,omitempty"`
-	Type          string       `json:"type"`
-	WidgetId      string       `json:"widgetId"`
+	Type          string       `json:"type,omitempty"`
+	WidgetId      string       `json:"widgetId,omitempty"`
 	LinkedPage    *SitemapPage `json:"linkedPage,omitempty"`
 	SendFrequency string       `json:"sendFrequency,omitempty"`
 	SwitchSupport string       `json:"switchSupport,omitempty"`
@@ -98,15 +98,15 @@ func (m *Mappings) UnmarshalJSON(bs []byte) error {
 }
 
 type Mapping struct {
-	Command string `json:"command"`
-	Label   string `json:"label"`
+	Command string `json:"command,omitempty"`
+	Label   string `json:"label,omitempty"`
 }
 
 type SitemapPage struct {
 	Icon    string  `json:"icon,omitempty"`
 	Id      string  `json:"id,omitempty"`
-	Leaf    string  `json:"leaf"`
-	Link    string  `json:"link"`
+	Leaf    string  `json:"leaf,omitempty"`
+	Link    string  `json:"link,omitempty"`
 	Title   string  `json:"title,omitempty"`
 	Widgets Widgets `json:"widget,omitempty"`
 }
