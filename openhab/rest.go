@@ -4,10 +4,35 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 )
+
+type RestError struct {
+	Text string
+	Code int
+}
+
+func (r RestError) Error() string {
+	return fmt.Sprintf("%d: %s", r.Code, r.Text)
+}
+
+func NewRestError(err error) RestError {
+	var code int
+	if err == nil || len(err.Error()) < 3 {
+		code = 500
+	} else {
+		var err2 error
+		code, err2 = strconv.Atoi(err.Error()[:3])
+		if err2 != nil {
+			code = 500
+		}
+	}
+	text := err.Error()
+	return RestError{text, code}
+}
 
 type Client struct {
 	Username, Password string
@@ -42,18 +67,19 @@ const (
 )
 
 // Needs to be updated for long-polling/streaming reqs (add a chan?)
-func (cl *Client) request(method, url, body string, out interface{}, reqType ReqType) (err error) {
+func (cl *Client) request(method, url, body string, out interface{}, reqType ReqType) error {
 	var req *http.Request
+	var err error
 	if body != "" {
 		bodyBuffer := bytes.NewBuffer([]byte(body))
 		req, err = http.NewRequest(method, cl.URL+url, bodyBuffer)
 		if err != nil {
-			return
+			return NewRestError(err)
 		}
 	} else {
 		req, err = http.NewRequest(method, cl.URL+url, nil)
 		if err != nil {
-			return
+			return NewRestError(err)
 		}
 	}
 	req.Header.Add("Content-Type", "text/plain")
@@ -63,21 +89,26 @@ func (cl *Client) request(method, url, body string, out interface{}, reqType Req
 	}
 	resp, err := cl.httpClient.Do(req)
 	if err != nil {
-		return
+		return NewRestError(err)
 	}
 	if resp.Status[0] == '2' {
 		if out != nil {
 			decoder := json.NewDecoder(resp.Body)
 			err = decoder.Decode(out)
 		}
-		return
+		if err != nil {
+			return NewRestError(err)
+		}
+		return nil
 	}
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return
+		return NewRestError(err)
 	}
-	err = errors.New(resp.Status + ": " + string(bodyBytes))
-	return
+	code, _ := strconv.Atoi(resp.Status[:3])
+	text := string(bodyBytes)
+	err = RestError{text, code}
+	return err
 }
 
 // Get a list of Sitemaps
