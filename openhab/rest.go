@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"strconv"
 )
 
@@ -66,122 +67,229 @@ const (
 	Streaming
 )
 
+type response struct {
+	Val   interface{}
+	Error error
+}
+
 // Needs to be updated for long-polling/streaming reqs (add a chan?)
-func (cl *Client) request(method, url, body string, out interface{}, reqType ReqType) error {
+func (cl *Client) request(method, url, body string, out interface{}, reqType ReqType) (chan response, chan struct{}) {
+	ctl := make(chan struct{})
 	var req *http.Request
 	var err error
+	ch := make(chan response, 1)
 	if body != "" {
 		bodyBuffer := bytes.NewBuffer([]byte(body))
 		req, err = http.NewRequest(method, cl.URL+url, bodyBuffer)
 		if err != nil {
-			return NewRestError(err)
+			ch <- response{nil, NewRestError(err)}
+			close(ch)
+			return ch, nil
 		}
 	} else {
 		req, err = http.NewRequest(method, cl.URL+url, nil)
 		if err != nil {
-			return NewRestError(err)
+			ch <- response{nil, NewRestError(err)}
+			close(ch)
+			return ch, nil
 		}
 	}
 	req.Header.Add("Content-Type", "text/plain")
 	req.Header.Add("Accept", "application/json")
+	//stream := false
+	switch reqType {
+	case LongPolling:
+		req.Header.Add("X-Atmosphere-Transport", "long-polling")
+	case Streaming:
+		req.Header.Add("X-Atmosphere-Transport", "streaming")
+		//stream = true
+	default:
+	}
 	if cl.Username != "" && cl.Password != "" {
 		req.SetBasicAuth(cl.Username, cl.Password)
 	}
 	resp, err := cl.httpClient.Do(req)
 	if err != nil {
-		return NewRestError(err)
+		ch <- response{nil, NewRestError(err)}
+		close(ch)
+		return ch, nil
 	}
 	if resp.Status[0] == '2' {
+		decoder := json.NewDecoder(resp.Body)
 		if out != nil {
-			decoder := json.NewDecoder(resp.Body)
-			err = decoder.Decode(out)
+			dch := make(chan interface{})
+			go func() {
+				for {
+					err := decoder.Decode(out)
+					if err != nil {
+						dch <- response{nil, NewRestError(err)}
+						close(dch)
+						return
+					}
+					dch <- response{out, nil}
+				}
+			}()
+			go func() {
+				for {
+					select {
+					case <-ctl:
+						close(ch)
+						return
+					case <-dch:
+						if err != nil {
+							select {
+							case <-ctl:
+							case ch <- response{nil, NewRestError(err)}:
+							}
+							close(ch)
+							return
+						}
+						v := reflect.ValueOf(out)
+						select {
+						case <-ctl:
+							close(ch)
+							return
+						case ch <- response{reflect.Indirect(v).Interface(), nil}:
+						}
+					}
+				}
+			}()
 		}
-		if err != nil {
-			return NewRestError(err)
-		}
-		return nil
+		return ch, ctl
 	}
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return NewRestError(err)
+		ch <- response{nil, NewRestError(err)}
+		close(ch)
+		return ch, nil
 	}
 	code, _ := strconv.Atoi(resp.Status[:3])
 	text := string(bodyBytes)
 	err = RestError{text, code}
-	return err
+	ch <- response{nil, err}
+	close(ch)
+	return ch, nil
 }
 
 // Get a list of Sitemaps
 func (cl *Client) Sitemaps() ([]Sitemap, error) {
 	resp := SitemapsResp{}
-	err := cl.request("GET", "/sitemaps", "", &resp, NormalReq)
-	if err != nil {
-		return nil, err
+	outch, _ := cl.request("GET", "/sitemaps", "", &resp, NormalReq)
+	out := <-outch
+	if out.Error != nil {
+		return nil, out.Error
 	}
 
-	return resp.Sitemaps, nil
+	return out.Val.(SitemapsResp).Sitemaps, nil
 }
 
 // Get a single Sitemap
-func (cl *Client) Sitemap(name string) (*Sitemap, error) {
+func (cl *Client) Sitemap(name string) (Sitemap, error) {
 	resp := Sitemap{}
-	err := cl.request("GET", "/sitemaps/"+name, "", &resp, NormalReq)
-	if err != nil {
-		return nil, err
+	outch, _ := cl.request("GET", "/sitemaps/"+name, "", &resp, NormalReq)
+	out := <-outch
+	if out.Error != nil {
+		return Sitemap{}, out.Error
 	}
 
-	return &resp, nil
+	return out.Val.(Sitemap), nil
 }
 
 // Get a sitemap page
-func (cl *Client) SitemapPage(name, page string) (*SitemapPage, error) {
+func (cl *Client) SitemapPage(name, page string) (SitemapPage, error) {
 	resp := SitemapPage{}
-	err := cl.request("GET", "/sitemaps/"+name+"/"+page, "", &resp, NormalReq)
-	if err != nil {
-		return nil, err
+	outch, _ := cl.request("GET", "/sitemaps/"+name+"/"+page, "", &resp, NormalReq)
+	out := <-outch
+	if out.Error != nil {
+		return SitemapPage{}, out.Error
 	}
 
-	return &resp, nil
+	return out.Val.(SitemapPage), nil
 }
 
 // Get all of the items
 func (cl *Client) Items() ([]Item, error) {
 	resp := ItemsResp{}
-	err := cl.request("GET", "/items", "", &resp, NormalReq)
-	if err != nil {
-		return nil, err
+	outch, _ := cl.request("GET", "/items", "", &resp, NormalReq)
+	out := <-outch
+	if out.Error != nil {
+		return nil, out.Error
 	}
 
-	return resp.Items, nil
+	return out.Val.(ItemsResp).Items, nil
 }
 
 // Get a single Item
-func (cl *Client) Item(name string) (*Item, error) {
+func (cl *Client) Item(name string) (Item, error) {
 	resp := Item{}
-	err := cl.request("GET", "/items/"+name, "", &resp, NormalReq)
-	if err != nil {
-		return nil, err
+	outch, _ := cl.request("GET", "/items/"+name, "", &resp, NormalReq)
+	out := <-outch
+	if out.Error != nil {
+		return Item{}, out.Error
 	}
 
-	return &resp, nil
+	return out.Val.(Item), nil
 }
 
 // Send a command to an item
 func (cl *Client) CommandItem(item, cmd string) error {
-	return cl.request("POST", "/items/"+item, cmd, nil, NormalReq)
+	resp, _ := cl.request("POST", "/items/"+item, cmd, nil, NormalReq)
+	return (<-resp).Error
 }
 
 // Update the state of an item. Not really sure what this is for.
 func (cl *Client) UpdateItem(item, cmd string) error {
-	return cl.request("PUT", "/items/"+item, cmd, nil, NormalReq)
+	resp, _ := cl.request("PUT", "/items/"+item+"/state", cmd, nil, NormalReq)
+	return (<-resp).Error
 }
 
 // Stub for long-polling item
-func (cl *Client) ItemLongPolling(item string) (chan Item, error) {
-	return nil, nil
+func (cl *Client) ItemStreaming(name string) (chan Item, chan struct{}) {
+	ch := make(chan Item)
+	ctl := make(chan struct{})
+	go func() {
+		resp := Item{}
+		outch, rctl := cl.request("GET", "/items/"+name, "", &resp, Streaming)
+		for {
+			select {
+			case <-ctl:
+				close(ch)
+				close(rctl)
+				return
+			case out := <-outch:
+
+				if out.Error != nil {
+					close(ch)
+					close(rctl)
+					return
+				}
+				select {
+				case <-ctl:
+					close(ch)
+					close(rctl)
+					return
+				case ch <- out.Val.(Item):
+				}
+			}
+		}
+	}()
+
+	return ch, ctl
 }
 
-// Stub for streaming item
-func (cl *Client) ItemStreaming(item string) (chan Item, error) {
-	return nil, nil
+// Create a channel to receive a new item on asynchronously
+func (cl *Client) ItemLongPolling(name string) chan Item {
+	ch := make(chan Item)
+	go func() {
+		resp := Item{}
+		outch, _ := cl.request("GET", "/items/"+name, "", &resp, LongPolling)
+		out := <-outch
+		if out.Error != nil {
+			close(ch)
+			return
+		}
+		ch <- out.Val.(Item)
+	}()
+
+	return ch
 }

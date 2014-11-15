@@ -61,15 +61,15 @@ func (s *Sitemaps) UnmarshalJSON(bs []byte) error {
 }
 
 type Sitemap struct {
-	Homepage SitemapPage `json:"homepage"`
-	Label    string      `json:"label,omitempty"`
-	Link     string      `json:"link"`
-	Name     string      `json:"name,omitempty"`
+	Homepage *SitemapPage `json:"homepage"`
+	Label    string       `json:"label,omitempty"`
+	Link     string       `json:"link"`
+	Name     string       `json:"name,omitempty"`
 }
 
 type Widget struct {
 	Icon          string       `json:"icon,omitempty"`
-	Item          Item         `json:"item,omitempty"`
+	Item          *Item        `json:"item,omitempty"`
 	Label         string       `json:"label,omitempty"`
 	Type          string       `json:"type"`
 	WidgetId      string       `json:"widgetId"`
