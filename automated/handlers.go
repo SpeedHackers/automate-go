@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 
 	"github.com/SpeedHackers/automate-go/openhab"
@@ -144,7 +145,9 @@ func (s *server) dbHandler(w http.ResponseWriter, r *http.Request) {
 		data := make(map[string]interface{})
 		err := json.NewDecoder(r.Body).Decode(&data)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), 400)
+			bodyBytes, _ := ioutil.ReadAll(r.Body)
+			log.Print(err, string(bodyBytes))
 			return
 		}
 		err = s.db.Set("data", "loldata", data)
@@ -160,6 +163,7 @@ func (s *server) dbHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		dataBytes, _ := json.MarshalIndent(data, "", "  ")
+		w.Header().Add("Content-Type", "application/json")
 		w.Write(dataBytes)
 	}
 }
