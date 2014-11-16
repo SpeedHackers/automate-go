@@ -154,8 +154,11 @@ func (cl *Client) request(method, url, body string, out interface{}, reqType Req
 					}
 				}
 			}()
+			return ch, ctl
 		}
-		return ch, ctl
+		ch <- response{nil, nil}
+		close(ch)
+		return ch, nil
 	}
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

@@ -13,11 +13,15 @@ type server struct {
 	rew     *regexp.Regexp
 	Port    string
 	TLSPort string
+	db      *DB
 }
 
 func (s *server) setupRoutes() http.Handler {
 	r := mux.NewRouter()
+	r.HandleFunc("/yo/items/{item}", s.yo).Methods("GET")
 	r.HandleFunc("/rest", s.base).Methods("GET")
+	r.HandleFunc("/hooks", s.hooks).Methods("POST")
+	r.HandleFunc("/db", s.dbHandler).Methods("POST", "GET")
 	rest := r.PathPrefix("/rest").Subrouter()
 	rest.HandleFunc("/", s.base).Methods("GET")
 	rest.HandleFunc("/items", s.getItems).Methods("GET")
@@ -39,6 +43,12 @@ func (s *server) setupRoutes() http.Handler {
 func (s *server) Run() error {
 	ch := make(chan error)
 	routes := s.setupRoutes()
+	var err error
+	s.db, err = OpenDB(".")
+	if err != nil {
+		return err
+	}
+
 	go func() {
 		ch <- http.ListenAndServe(":"+s.Port, routes)
 	}()

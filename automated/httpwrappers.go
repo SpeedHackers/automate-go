@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/SpeedHackers/automate-go/openhab"
 )
 
 type snifferWriter struct {
@@ -57,6 +59,7 @@ func loggerFunc(f func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 		resp := newSnifferWriter()
 		f(resp, r)
 		log.Printf("%s %d", reqLog, resp.code)
+		//log.Print(r.Header)
 		resp.WriteOut(w)
 	}
 }
@@ -83,3 +86,58 @@ func (s *server) rewriteFunc(f func(http.ResponseWriter, *http.Request)) func(ht
 		resp.WriteOut(w)
 	}
 }
+
+func (s *server) auth(h http.Handler) http.Handler {
+	return http.HandlerFunc(s.authFunc(h.ServeHTTP))
+}
+
+func (s *server) authFunc(f func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		resp := newSnifferWriter()
+		f(resp, r)
+		auth := getBasicAuth(r)
+		exists, err := s.db.Exists("users", auth.User)
+		if err != nil {
+			restErr := openhab.NewRestError(err)
+			http.Error(w, restErr.Text, restErr.Code)
+			return
+		}
+		if !exists {
+			s.db.Set("users", auth.User, User{auth.User, auth.Password, []string{auth.User}})
+		}
+		user := &User{}
+		s.db.Get("users", auth.User, user)
+		if user.Password != auth.Password {
+			http.Error(w, "Invalid Login", 403)
+			return
+		}
+
+		if r.Method == "POST" {
+			parts := strings.Split(r.URL.Path, "/")
+			item := parts[len(parts)-1]
+			dbItem := &DBItem{}
+			err := s.db.Get("items", item, dbItem)
+			if err != nil {
+				restErr := openhab.NewRestError(err)
+				http.Error(w, restErr.Text, restErr.Code)
+				return
+			}
+
+		}
+		resp.WriteOut(w)
+	}
+}
+
+/*
+func (s *server) requireAuthFunc(f func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sess := s.getSession(r, w)
+		sess.Last = r.URL.Path
+		if sess.Authenticated {
+			f(w, r)
+		} else {
+			http.Redirect(w, r, "/login", http.StatusFound)
+		}
+	}
+}
+*/
