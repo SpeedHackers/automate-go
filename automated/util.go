@@ -31,14 +31,14 @@ func getGroupRec(cl *openhab.Client, name string) (openhab.Items, error) {
 				items = append(items, subItems...)
 
 			}
-			items = append(items, v)
 		}
 	}
+	topGrp.Members = nil
+	items = append(items, topGrp)
 	return items, nil
 }
 
 func getAllowed(cl *openhab.Client) ([]openhab.Item, error) {
 	allowed, err := getGroupRec(cl, "Group_"+strings.Title(cl.Username))
-	//log.Print(allowed)
 	return allowed, err
 }

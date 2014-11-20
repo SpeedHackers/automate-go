@@ -14,8 +14,8 @@ then
 	if [ $OH_TLS == "true" ]
 	then
 		tls="-tls"
-		cert="/etc/automated/cert.pem"
-		key="/etc/automated/key.pem"
+		cert="-cert /etc/automated/cert.pem"
+		key="-key /etc/automated/key.pem"
 	fi
 fi
 
