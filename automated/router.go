@@ -64,11 +64,13 @@ func (s *server) setupRoutes() http.Handler {
 func (s *server) Run() error {
 	ch := make(chan error)
 	routes := s.setupRoutes()
-	var err error
-	s.db, err = OpenDB(s.Dynamic + "/db")
-	if err != nil {
-		return err
-	}
+	/*
+		var err error
+		s.db, err = OpenDB(s.Dynamic + "/db")
+		if err != nil {
+			return err
+		}
+	*/
 
 	go func() {
 		ch <- http.ListenAndServe(":"+s.Port, routes)

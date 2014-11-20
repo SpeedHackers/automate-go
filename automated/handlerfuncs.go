@@ -34,6 +34,11 @@ func (s *server) getMaps(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) getMap(w http.ResponseWriter, r *http.Request) {
 	client := makeClient(r, s.OHURL)
+	allowed, err := getAllowed(client)
+	if err != nil {
+		Error(w, err)
+		return
+	}
 
 	smap := mux.Vars(r)["map"]
 	data, err := client.Sitemap(smap)
@@ -42,11 +47,18 @@ func (s *server) getMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	filterPage(data.Homepage, allowed)
+
 	s.finish(r, w, data)
 }
 
 func (s *server) getPage(w http.ResponseWriter, r *http.Request) {
 	client := makeClient(r, s.OHURL)
+	allowed, err := getAllowed(client)
+	if err != nil {
+		Error(w, err)
+		return
+	}
 
 	vars := mux.Vars(r)
 	smap := vars["map"]
@@ -60,6 +72,7 @@ func (s *server) getPage(w http.ResponseWriter, r *http.Request) {
 			Error(w, pageerr.Error)
 			return
 		}
+		filterPage(&(pageerr.Page), allowed)
 		s.finish(r, w, pageerr.Page)
 	default:
 		data, err := client.SitemapPage(smap, page)
@@ -67,6 +80,8 @@ func (s *server) getPage(w http.ResponseWriter, r *http.Request) {
 			Error(w, err)
 			return
 		}
+
+		filterPage(&data, allowed)
 
 		s.finish(r, w, data)
 	}
@@ -99,6 +114,17 @@ func (s *server) getItem(w http.ResponseWriter, r *http.Request) {
 	client := makeClient(r, s.OHURL)
 
 	item := mux.Vars(r)["item"]
+	allowed, err := getAllowed(client)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+
+	if !inItems(item, allowed) {
+		http.Error(w, "Not Authorized", 401)
+		return
+	}
+
 	transport := r.Header.Get("X-Atmosphere-Transport")
 
 	switch transport {
@@ -121,8 +147,18 @@ func (s *server) getItem(w http.ResponseWriter, r *http.Request) {
 }
 func (s *server) getItemStreaming(w http.ResponseWriter, r *http.Request) {
 	client := makeClient(r, s.OHURL)
-
 	item := mux.Vars(r)["item"]
+	allowed, err := getAllowed(client)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+
+	if !inItems(item, allowed) {
+		http.Error(w, "Not Authorized", 401)
+		return
+	}
+
 	ch, ctl := client.ItemStreaming(item)
 	defer close(ctl)
 	for iterr := range ch {
@@ -141,6 +177,17 @@ func (s *server) getItemStreaming(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) cmdItem(w http.ResponseWriter, r *http.Request) {
 	client := makeClient(r, s.OHURL)
+	item := mux.Vars(r)["item"]
+	allowed, err := getAllowed(client)
+	if err != nil {
+		Error(w, err)
+		return
+	}
+
+	if !inItems(item, allowed) {
+		http.Error(w, "Not Authorized", 401)
+		return
+	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -148,7 +195,6 @@ func (s *server) cmdItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item := mux.Vars(r)["item"]
 	err = client.CommandItem(item, string(body))
 	if err != nil {
 		Error(w, err)
@@ -159,14 +205,16 @@ func (s *server) cmdItem(w http.ResponseWriter, r *http.Request) {
 
 	s.finish(r, w, nil)
 }
+
 func (s *server) getItems(w http.ResponseWriter, r *http.Request) {
 	client := makeClient(r, s.OHURL)
-
-	data, err := client.Items()
+	allowed, err := getAllowed(client)
 	if err != nil {
 		Error(w, err)
 		return
 	}
+
+	data := allowed
 
 	s.finish(r, w, openhab.ItemsResp{Items: data})
 }
