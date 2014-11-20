@@ -1,5 +1,16 @@
 package openhab
 
+import "fmt"
+
+type ItemError struct {
+	Item  Item
+	Error error
+}
+type PageError struct {
+	Page  SitemapPage
+	Error error
+}
+
 func (cl *Client) streamPath(path string, t interface{}) (chan interface{}, chan struct{}) {
 	ch := make(chan interface{})
 	ctl := make(chan struct{})
@@ -32,67 +43,103 @@ func (cl *Client) streamPath(path string, t interface{}) (chan interface{}, chan
 	return ch, ctl
 }
 
-func (cl *Client) longPollPath(path string, t interface{}) chan interface{} {
-	ch := make(chan interface{})
+func (cl *Client) ItemLongPolling(name string) chan ItemError {
+	ch := make(chan ItemError)
+	outch, _ := cl.request("GET", "/items/"+name, "", &Item{}, LongPolling)
 	go func() {
-		outch, _ := cl.request("GET", path, "", t, LongPolling)
-		out := <-outch
-		if out.Error != nil {
-			close(ch)
-			return
+		it := ItemError{}
+		resp := <-outch
+		it.Error = resp.Error
+		if resp.Error == nil {
+			item, ok := resp.Val.(Item)
+			if ok {
+				it.Item = item
+			} else {
+				it.Error = fmt.Errorf("Unable to convert interface")
+			}
 		}
-		ch <- out.Val
+		ch <- it
+		close(ch)
+		return
+	}()
+
+	return ch
+}
+
+func (cl *Client) PageLongPolling(smap, page string) chan PageError {
+	ch := make(chan PageError)
+	outch, _ := cl.request("GET", "/sitemaps/"+smap+"/"+page, "", &SitemapPage{}, LongPolling)
+	go func() {
+		it := PageError{}
+		resp := <-outch
+		it.Error = resp.Error
+		if resp.Error == nil {
+			page, ok := resp.Val.(SitemapPage)
+			if ok {
+				it.Page = page
+			} else {
+				it.Error = fmt.Errorf("Unable to convert interface")
+			}
+		}
+		ch <- it
+		close(ch)
+		return
 	}()
 
 	return ch
 }
 
 // Stub for long-polling item
-func (cl *Client) ItemStreaming(name string) (chan Item, chan struct{}) {
-	ch := make(chan Item)
-	stream, ctl := cl.streamPath("/items/"+name, &Item{})
+func (cl *Client) ItemStreaming(name string) (chan ItemError, chan struct{}) {
+	ch := make(chan ItemError)
+	stream, ctl := cl.request("GET", "/items/"+name, "", &Item{}, Streaming)
 	go func() {
-		for v := range stream {
-			ch <- v.(Item)
+		it := ItemError{}
+		for resp := range stream {
+			it.Error = resp.Error
+			if resp.Error == nil {
+				item, ok := resp.Val.(Item)
+				if ok {
+					it.Item = item
+				} else {
+					it.Error = fmt.Errorf("Unable to convert interface")
+					ch <- it
+					close(ch)
+				}
+				ch <- it
+			} else {
+				ch <- it
+				close(ch)
+			}
+
 		}
-		close(ch)
 	}()
 	return ch, ctl
 }
 
-// Stub for long-polling item
-func (cl *Client) PageStreaming(smap, name string) (chan SitemapPage, chan struct{}) {
-	ch := make(chan SitemapPage)
-	stream, ctl := cl.streamPath("/sitemaps/"+smap+"/"+name, &SitemapPage{})
+func (cl *Client) PageStreaming(smap, page string) (chan PageError, chan struct{}) {
+	ch := make(chan PageError)
+	stream, ctl := cl.request("GET", "/sitemaps/"+smap+"/"+page, "", &SitemapPage{}, Streaming)
 	go func() {
-		for v := range stream {
-			ch <- v.(SitemapPage)
+		it := PageError{}
+		for resp := range stream {
+			it.Error = resp.Error
+			if resp.Error == nil {
+				item, ok := resp.Val.(SitemapPage)
+				if ok {
+					it.Page = item
+				} else {
+					it.Error = fmt.Errorf("Unable to convert interface")
+					ch <- it
+					close(ch)
+				}
+				ch <- it
+			} else {
+				ch <- it
+				close(ch)
+			}
+
 		}
-		close(ch)
 	}()
 	return ch, ctl
-}
-
-// Create a channel to receive a new item on asynchronously
-func (cl *Client) ItemLongPolling(name string) chan Item {
-	ch := make(chan Item)
-	go func() {
-		poll := cl.longPollPath("/items/"+name, &Item{})
-		v := <-poll
-		ch <- v.(Item)
-	}()
-
-	return ch
-}
-
-// Create a channel to receive a new item on asynchronously
-func (cl *Client) PageLongPolling(smap, name string) chan SitemapPage {
-	ch := make(chan SitemapPage)
-	go func() {
-		poll := cl.longPollPath("/sitemaps/"+smap+"/"+name, &SitemapPage{})
-		v := <-poll
-		ch <- v.(SitemapPage)
-	}()
-
-	return ch
 }

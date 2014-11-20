@@ -4,47 +4,68 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/SpeedHackers/automate-go/openhab"
 	"github.com/gorilla/mux"
 )
 
 type server struct {
-	Client  *openhab.Client
+	OHURL   string
 	rew     *regexp.Regexp
 	Port    string
 	TLSPort string
+	Cert    string
+	Key     string
+	Static  string
+	Dynamic string
 	db      *DB
 }
 
 func (s *server) setupRoutes() http.Handler {
 	r := mux.NewRouter()
-	r.HandleFunc("/yo/items/{item}", s.yo).Methods("GET")
-	r.HandleFunc("/rest", s.base).Methods("GET")
+	r.HandleFunc("/yo/items/{item}", loggerFunc(s.yo)).Methods("GET")
+	r.HandleFunc("/rest", s.rest).
+		Methods("GET")
+	r.PathPrefix("/images/").
+		Handler(http.StripPrefix("/images/",
+		http.FileServer(http.Dir(s.Static+"/images/"))))
 	r.HandleFunc("/hooks", s.hooks).Methods("POST")
-	r.HandleFunc("/db", s.dbHandler).Methods("POST", "GET")
 	rest := r.PathPrefix("/rest").Subrouter()
-	rest.HandleFunc("/", s.base).Methods("GET")
-	rest.HandleFunc("/items", s.getItems).Methods("GET")
-	rest.HandleFunc("/sitemaps", s.getMaps).Methods("GET")
+	rest.HandleFunc("/", loggerFunc(s.rest)).
+		Methods("GET")
+	rest.HandleFunc("/items", loggerFunc(s.getItems)).
+		Methods("GET")
+	rest.HandleFunc("/sitemaps", loggerFunc(s.getMaps)).
+		Methods("GET")
 
 	maps := rest.PathPrefix("/sitemaps").Subrouter()
-	maps.HandleFunc("/", s.getMaps).Methods("GET")
-	maps.HandleFunc("/{map}", s.getMap).Methods("GET")
-	maps.HandleFunc("/{map}/{page}", s.getPage).Methods("GET")
+	maps.HandleFunc("/", loggerFunc(s.getMaps)).
+		Methods("GET")
+	maps.HandleFunc("/{map}", loggerFunc(s.getMap)).
+		Methods("GET")
+	maps.HandleFunc("/{map}/{page}", loggerFunc(s.getPage)).
+		Methods("GET")
+	maps.HandleFunc("/{map}/{page}", s.getPageStreaming).
+		Headers("X-Atmosphere-Transport", "streaming").
+		Methods("GET")
 
 	items := rest.PathPrefix("/items").Subrouter()
-	items.HandleFunc("/", s.getItems).Methods("GET")
-	items.HandleFunc("/{item}", s.getItem).Methods("GET")
-	items.HandleFunc("/{item}", s.cmdItem).Methods("POST")
+	items.HandleFunc("/", loggerFunc(s.getItems)).
+		Methods("GET")
+	items.HandleFunc("/{item}", s.getItemStreaming).
+		Headers("X-Atmosphere-Transport", "streaming").
+		Methods("GET")
+	items.HandleFunc("/{item}", loggerFunc(s.getItem)).
+		Methods("GET")
+	items.HandleFunc("/{item}", loggerFunc(s.cmdItem)).
+		Methods("POST")
 
-	return logger(s.rewriter(r))
+	return r
 }
 
 func (s *server) Run() error {
 	ch := make(chan error)
 	routes := s.setupRoutes()
 	var err error
-	s.db, err = OpenDB(".")
+	s.db, err = OpenDB(s.Dynamic + "/db")
 	if err != nil {
 		return err
 	}
@@ -52,5 +73,10 @@ func (s *server) Run() error {
 	go func() {
 		ch <- http.ListenAndServe(":"+s.Port, routes)
 	}()
+	if s.TLSPort != "" && s.Key != "" && s.Cert != "" {
+		go func() {
+			ch <- http.ListenAndServeTLS(":"+s.TLSPort, s.Cert, s.Key, routes)
+		}()
+	}
 	return <-ch
 }

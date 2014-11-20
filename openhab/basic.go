@@ -1,5 +1,17 @@
 package openhab
 
+// Get the base of the rest endpoint
+func (cl *Client) Base() (RestBase, error) {
+	resp := RestBase{}
+	outch, _ := cl.request("GET", "", "", &resp, NormalReq)
+	out := <-outch
+	if out.Error != nil {
+		return RestBase{}, out.Error
+	}
+
+	return out.Val.(RestBase), nil
+}
+
 // Get a list of Sitemaps
 func (cl *Client) Sitemaps() ([]Sitemap, error) {
 	resp := SitemapsResp{}

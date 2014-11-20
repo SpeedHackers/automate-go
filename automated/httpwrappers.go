@@ -6,9 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
-
-	"github.com/SpeedHackers/automate-go/openhab"
 )
 
 type snifferWriter struct {
@@ -59,34 +56,11 @@ func loggerFunc(f func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 		resp := newSnifferWriter()
 		f(resp, r)
 		log.Printf("%s %d", reqLog, resp.code)
-		//log.Print(r.Header)
 		resp.WriteOut(w)
 	}
 }
 
-func (s *server) rewriter(h http.Handler) http.Handler {
-	return http.HandlerFunc(s.rewriteFunc(h.ServeHTTP))
-}
-
-func (s *server) rewriteFunc(f func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		resp := newSnifferWriter()
-		f(resp, r)
-		var scheme string
-		hostport := strings.Split(r.Host, ":")
-		if len(hostport) > 1 && hostport[1] == s.TLSPort {
-			scheme = "https"
-		} else {
-			scheme = "http"
-		}
-		body := resp.buf.Bytes()
-		resp.buf = *bytes.NewBuffer(s.rew.ReplaceAll(body, []byte(scheme+"://"+r.Host)))
-		resp.header.Add("Content-Type", "application/json")
-		resp.header.Add("Access-Control-Allow-Origin", "*")
-		resp.WriteOut(w)
-	}
-}
-
+/*
 func (s *server) auth(h http.Handler) http.Handler {
 	return http.HandlerFunc(s.authFunc(h.ServeHTTP))
 }
@@ -96,17 +70,17 @@ func (s *server) authFunc(f func(http.ResponseWriter, *http.Request)) func(http.
 		resp := newSnifferWriter()
 		f(resp, r)
 		auth := getBasicAuth(r)
-		exists, err := s.db.Exists("users", auth.User)
+		exists, err := s.db.Exists("users", auth.Username)
 		if err != nil {
 			restErr := openhab.NewRestError(err)
 			http.Error(w, restErr.Text, restErr.Code)
 			return
 		}
 		if !exists {
-			s.db.Set("users", auth.User, User{auth.User, auth.Password, []string{auth.User}})
+			s.db.Set("users", auth.Username, User{auth.Username, auth.Password, []string{auth.Username}})
 		}
 		user := &User{}
-		s.db.Get("users", auth.User, user)
+		s.db.Get("users", auth.Username, user)
 		if user.Password != auth.Password {
 			http.Error(w, "Invalid Login", 403)
 			return

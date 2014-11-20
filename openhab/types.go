@@ -1,26 +1,33 @@
 package openhab
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"encoding/xml"
+)
 
 type Link struct {
-	Type string `json:"@type,omitempty"`
-	URL  string `json:"$,omitempty"`
+	XMLName xml.Name `xml:"link" json:"-"`
+	Type    string   `json:"@type,omitempty" xml:"type,attr,omitempty"`
+	URL     string   `json:"$,omitempty" xml:",chardata"`
 }
 
 type RestBase struct {
-	Links []Link `json:"link,omitempty"`
+	XMLName xml.Name `xml:"openhab" json:"-"`
+	Links   []Link   `json:"link,omitempty" xml:"links,omitempty"`
 }
 
 type Item struct {
-	Link  string `json:"link,omitempty"`
-	Name  string `json:"name,omitempty"`
-	State string `json:"state,omitempty"`
-	Type  string `json:"type,omitempty"`
+	XMLName xml.Name `xml:"item" json:"-"`
+	Link    string   `json:"link,omitempty" xml:"link,omitempty"`
+	Name    string   `json:"name,omitempty" xml:"name,omitempty"`
+	State   string   `json:"state,omitempty" xml:"state,omitempty"`
+	Type    string   `json:"type,omitempty" xml:"type,omitempty"`
 }
 
 type Items []Item
 type ItemsResp struct {
-	Items Items `json:"item"`
+	XMLName xml.Name `xml:"items" json:"-"`
+	Items   Items    `json:"item" xml:"items,omitempty"`
 }
 
 func (i *Items) UnmarshalJSON(bs []byte) error {
@@ -41,7 +48,8 @@ func (i *Items) UnmarshalJSON(bs []byte) error {
 
 type Sitemaps []Sitemap
 type SitemapsResp struct {
-	Sitemaps Sitemaps `json:"sitemap,omitempty"`
+	XMLName  xml.Name `xml:"sitemaps" json:"-"`
+	Sitemaps Sitemaps `json:"sitemap,omitempty" xml:"sitemap,omitempty"`
 }
 
 func (s *Sitemaps) UnmarshalJSON(bs []byte) error {
@@ -61,22 +69,24 @@ func (s *Sitemaps) UnmarshalJSON(bs []byte) error {
 }
 
 type Sitemap struct {
-	Homepage *SitemapPage `json:"homepage,omitempty"`
-	Label    string       `json:"label,omitempty"`
-	Link     string       `json:"link,omitempty"`
-	Name     string       `json:"name,omitempty"`
+	XMLName  xml.Name     `xml:"sitemap" json:"-"`
+	Homepage *SitemapPage `json:"homepage,omitempty" xml:"homepage,omitempty"`
+	Label    string       `json:"label,omitempty" xml:"label,omitempty"`
+	Link     string       `json:"link,omitempty" xml:"link,omitempty"`
+	Name     string       `json:"name,omitempty" xml:"name,omitempty"`
 }
 
 type Widget struct {
-	Icon          string       `json:"icon,omitempty"`
-	Item          *Item        `json:"item,omitempty"`
-	Label         string       `json:"label,omitempty"`
-	Type          string       `json:"type,omitempty"`
-	WidgetId      string       `json:"widgetId,omitempty"`
-	LinkedPage    *SitemapPage `json:"linkedPage,omitempty"`
-	SendFrequency string       `json:"sendFrequency,omitempty"`
-	SwitchSupport string       `json:"switchSupport,omitempty"`
-	Mappings      Mappings     `json:"mapping,omitempty"`
+	XMLName       xml.Name     `xml:"widget" json:"-"`
+	Icon          string       `json:"icon,omitempty" xml:"icon,omitempty"`
+	Item          *Item        `json:"item,omitempty" xml:"item,omitempty"`
+	Label         string       `json:"label,omitempty" xml:"label,omitempty"`
+	Type          string       `json:"type,omitempty" xml:"type,omitempty"`
+	WidgetId      string       `json:"widgetId,omitempty" xml:"widgetId,omitempty"`
+	LinkedPage    *SitemapPage `json:"linkedPage,omitempty" xml:"linkedPage,omitempty"`
+	SendFrequency string       `json:"sendFrequency,omitempty" xml:"sendFrequency,omitempty"`
+	SwitchSupport string       `json:"switchSupport,omitempty" xml:"switchSupport,omitempty"`
+	Mappings      Mappings     `json:"mapping,omitempty" xml:"mappings,omitempty"`
 }
 
 type Mappings []Mapping
@@ -98,17 +108,18 @@ func (m *Mappings) UnmarshalJSON(bs []byte) error {
 }
 
 type Mapping struct {
-	Command string `json:"command,omitempty"`
-	Label   string `json:"label,omitempty"`
+	XMLName xml.Name `xml:"mapping" json:"-"`
+	Command string   `json:"command,omitempty" xml:"command,omitempty"`
+	Label   string   `json:"label,omitempty" xml:"label,omitempty"`
 }
 
 type SitemapPage struct {
-	Icon    string  `json:"icon,omitempty"`
-	Id      string  `json:"id,omitempty"`
-	Leaf    string  `json:"leaf,omitempty"`
-	Link    string  `json:"link,omitempty"`
-	Title   string  `json:"title,omitempty"`
-	Widgets Widgets `json:"widget,omitempty"`
+	Icon    string  `json:"icon,omitempty" xml:"icon,omitempty,omitempty"`
+	Id      string  `json:"id,omitempty" xml:"id,omitempty,omitempty"`
+	Leaf    string  `json:"leaf,omitempty" xml:"leaf,omitempty,omitempty"`
+	Link    string  `json:"link,omitempty" xml:"link,omitempty,omitempty"`
+	Title   string  `json:"title,omitempty" xml:"title,omitempty,omitempty"`
+	Widgets Widgets `json:"widget,omitempty" xml:"widgets,omitempty,omitempty"`
 }
 
 type Widgets []Widget

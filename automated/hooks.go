@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/SpeedHackers/automate-go/openhab"
 	"github.com/gorilla/mux"
 )
 
@@ -38,28 +37,29 @@ func (i *HookCmds) UnmarshalJSON(bs []byte) error {
 }
 
 func (s *server) hooks(w http.ResponseWriter, r *http.Request) {
+	client := makeClient(r, s.OHURL)
 	cmd := &Hook{}
 	err := json.NewDecoder(r.Body).Decode(cmd)
 	if err != nil {
-		log.Print("Error decoding json")
-		http.Error(w, err.Error(), 500)
+		Error(w, err)
 		return
 	}
 	log.Print("received hook: ", cmd)
 	for _, v := range cmd.Cmds {
-		err = s.Client.CommandItem(v.Item, v.Cmd)
+		err = client.CommandItem(v.Item, v.Cmd)
 		if err != nil {
-			oherr := err.(openhab.RestError)
-			http.Error(w, oherr.Text, oherr.Code)
+			Error(w, err)
 		}
 	}
+	w.WriteHeader(201)
 }
+
 func (s *server) yo(w http.ResponseWriter, r *http.Request) {
+	client := makeClient(r, s.OHURL)
 	name := mux.Vars(r)["item"]
-	item, err := s.Client.Item(name)
+	item, err := client.Item(name)
 	if err != nil {
-		oherr := err.(openhab.RestError)
-		http.Error(w, oherr.Text, oherr.Code)
+		Error(w, err)
 		return
 	}
 	r.ParseForm()
@@ -71,19 +71,18 @@ func (s *server) yo(w http.ResponseWriter, r *http.Request) {
 		} else {
 			cmd = "ON"
 		}
-		err := s.Client.CommandItem(name, cmd)
+		err := client.CommandItem(name, cmd)
 		if err != nil {
-			oherr := err.(openhab.RestError)
-			http.Error(w, oherr.Text, oherr.Code)
+			Error(w, err)
 			return
 		}
 	case "StringItem":
 		loc, ok := r.Form["location"]
 		if ok {
-			s.Client.CommandItem(name, loc[0])
+			client.CommandItem(name, loc[0])
 		} else {
 			user := r.Form["username"]
-			s.Client.CommandItem(name, user[0])
+			client.CommandItem(name, user[0])
 		}
 
 	case "NumberItem":
@@ -93,15 +92,14 @@ func (s *server) yo(w http.ResponseWriter, r *http.Request) {
 		} else {
 			n++
 		}
-		err = s.Client.CommandItem(name, fmt.Sprintf("%d", n))
+		err = client.CommandItem(name, fmt.Sprintf("%d", n))
 		if err != nil {
-			oherr := err.(openhab.RestError)
-			http.Error(w, oherr.Text, oherr.Code)
+			Error(w, err)
 			return
 		}
 	default:
 		http.Error(w, "Can't yo that item", 405)
 		return
-
 	}
+	w.WriteHeader(201)
 }
