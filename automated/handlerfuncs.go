@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/SpeedHackers/automate-go/openhab"
 	"github.com/gorilla/mux"
 )
 
@@ -28,7 +29,7 @@ func (s *server) getMaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.finish(r, w, data)
+	s.finish(r, w, openhab.SitemapsResp{Sitemaps: data})
 }
 
 func (s *server) getMap(w http.ResponseWriter, r *http.Request) {
@@ -167,5 +168,5 @@ func (s *server) getItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.finish(r, w, data)
+	s.finish(r, w, openhab.ItemsResp{Items: data})
 }
