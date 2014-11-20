@@ -22,6 +22,7 @@ type Item struct {
 	Name    string   `json:"name,omitempty" xml:"name,omitempty"`
 	State   string   `json:"state,omitempty" xml:"state,omitempty"`
 	Type    string   `json:"type,omitempty" xml:"type,omitempty"`
+	Members Items    `json:"members,omitempty" xml:"members,omitempty"`
 }
 
 type Items []Item
