@@ -37,7 +37,8 @@ func getGroupRec(cl *openhab.Client, name string) (openhab.Items, error) {
 					return nil, err
 				}
 				items = append(items, subItems...)
-
+			} else {
+				items = append(items, v)
 			}
 		}
 	}
