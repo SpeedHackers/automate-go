@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -50,7 +49,6 @@ func getGroupRec(cl *openhab.Client, name string) (openhab.Items, error) {
 func (s *server) getAllowed(cl *openhab.Client) ([]openhab.Item, error) {
 	usrInt, ok := s.PermCache.Get(cl.Username)
 	if ok {
-		log.Print("Drawing from cache")
 		usr := usrInt.(User)
 		if usr.Password != cl.Password {
 			return nil, fmt.Errorf("Credentials differ from cache")
