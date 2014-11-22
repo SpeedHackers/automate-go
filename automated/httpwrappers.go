@@ -55,6 +55,9 @@ func loggerFunc(f func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 		reqLog := fmt.Sprintf("%s: %s %s %s", r.RemoteAddr, r.Method, r.URL.String(), r.Proto)
 		resp := newSnifferWriter()
 		f(resp, r)
+		if resp.code == 0 {
+			resp.code = 200
+		}
 		log.Printf("%s %d", reqLog, resp.code)
 		resp.WriteOut(w)
 	}
