@@ -11,6 +11,7 @@ import (
 type User struct {
 	Userame, Password string
 	Items             openhab.Items
+	Expire            time.Time
 }
 
 func inItems(it string, its []openhab.Item) bool {
@@ -57,20 +58,27 @@ func (s *server) getAllowed(cl *openhab.Client) ([]openhab.Item, error) {
 	}
 	allowed, err := getGroupRec(cl, "Group_"+strings.Title(cl.Username))
 	if err == nil {
-		usr := User{cl.Username, cl.Password, allowed}
+		usr := User{Username: cl.Username,
+			Password: cl.Password,
+			Items:    allowed,
+			Expire:   time.Now().Add(1 * time.Hour)}
 		s.PermCache.Set(cl.Username, usr)
-		s.startRefresh(cl)
+		s.startRefresh(cl, usr)
 	}
 	return allowed, err
 }
 
-func (s *server) startRefresh(cl *openhab.Client) {
+func (s *server) startRefresh(cl *openhab.Client, usr User) {
 	go func() {
 		for {
-			<-time.After(30 * time.Second)
+			<-time.After(1 * time.Minute)
+			if time.Now().After(usr.Expire) {
+				s.PermCache.Delete(cl.Username)
+				return
+			}
 			allowed, err := getGroupRec(cl, "Group_"+strings.Title(cl.Username))
 			if err == nil {
-				usr := User{cl.Username, cl.Password, allowed}
+				usr.Items = allowed
 				s.PermCache.Set(cl.Username, usr)
 			} else {
 				s.PermCache.Delete(cl.Username)
