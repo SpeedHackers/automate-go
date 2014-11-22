@@ -1,22 +1,26 @@
 package main
 
 import (
+	"log"
 	"net/http"
+	"net/url"
 	"regexp"
 
+	"github.com/Pursuit92/syncmap"
 	"github.com/gorilla/mux"
 )
 
 type server struct {
-	OHURL   string
-	rew     *regexp.Regexp
-	Port    string
-	TLSPort string
-	Cert    string
-	Key     string
-	Static  string
-	Dynamic string
-	db      *DB
+	OHURL     string
+	rew       *regexp.Regexp
+	Port      string
+	TLSPort   string
+	Cert      string
+	Key       string
+	Static    string
+	Dynamic   string
+	db        *DB
+	PermCache syncmap.Map
 }
 
 func (s *server) setupRoutes() http.Handler {
@@ -63,6 +67,18 @@ func (s *server) setupRoutes() http.Handler {
 
 func (s *server) Run() error {
 	ch := make(chan error)
+
+	ohurl, err := url.Parse(s.OHURL)
+	if err != nil {
+		return err
+	}
+	s.OHURL = ohurl.String()
+	log.Print("OH_URL: ", ohurl.String())
+	oldbase := ohurl.Scheme + "://" + ohurl.Host
+	s.rew = regexp.MustCompile(oldbase)
+
+	s.PermCache = syncmap.New()
+
 	routes := s.setupRoutes()
 	/*
 		var err error

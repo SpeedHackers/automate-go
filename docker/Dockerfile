@@ -1,6 +1,7 @@
 FROM golang
 
 MAINTAINER Josh Chase <jcjoshuachase@gmail.com>
+ADD images /usr/share/automated/images
 RUN go get github.com/SpeedHackers/automate-go/automated && rm -rf /go/pkg /go/src && strip /go/bin/automated
 EXPOSE 8888
 EXPOSE 8444

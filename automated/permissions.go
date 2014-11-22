@@ -1,62 +1,105 @@
-// +build ignore
-
 package main
 
-import "log"
+import (
+	"fmt"
+	"log"
+	"strings"
+	"time"
 
-type DBItem struct {
-	Name  string
-	Owner string
-	Group string
-	Perm  Permissions
-}
-
-type Permissions struct {
-	User  bool
-	Group bool
-	Other bool
-}
+	"github.com/SpeedHackers/automate-go/openhab"
+)
 
 type User struct {
-	Name, Password string
-	Groups         []string
+	Userame, Password string
+	Items             openhab.Items
 }
 
-func (s *server) initDB() error {
-	log.Print("Initializing DB")
-	items, err := s.Client.Items()
-	if err != nil {
-		return err
+func inItems(it string, its []openhab.Item) bool {
+	for _, v := range its {
+		if v.Name == it {
+			return true
+		}
 	}
+	return false
+}
 
-	count := 0
-	added := 0
-	for _, v := range items {
-		count++
-		if ok, err := s.db.Exists("items", v.Name); !ok && err == nil {
-			added++
-			dbEntry := DBItem{Name: v.Name,
-				Owner: "root",
-				Group: "root",
-				Perm:  Permissions{true, true, false}}
+func getGroupRec(cl *openhab.Client, name string) (openhab.Items, error) {
+	topGrp, err := cl.Item(name)
+	if err != nil {
+		return nil, err
+	}
+	var items openhab.Items
+	if topGrp.Members != nil {
+		for _, v := range topGrp.Members {
+			if v.Type == "GroupItem" {
+				subItems, err := getGroupRec(cl, v.Name)
+				if err != nil {
+					return nil, err
+				}
+				items = append(items, subItems...)
 
-			err := s.db.Set("items", v.Name, dbEntry)
-			if err != nil {
-				return err
 			}
 		}
 	}
-	log.Print("Added ", added, " new items")
-	log.Print("Loaded ", count, " items")
+	topGrp.Members = nil
+	items = append(items, topGrp)
+	return items, nil
+}
 
-	ok, err := s.db.Exists("users", "root")
-	if err != nil {
-		return err
+func (s *server) getAllowed(cl *openhab.Client) ([]openhab.Item, error) {
+	usrInt, ok := s.PermCache.Get(cl.Username)
+	if ok {
+		log.Print("Drawing from cache")
+		usr := usrInt.(User)
+		if usr.Password != cl.Password {
+			return nil, fmt.Errorf("Credentials differ from cache")
+		}
+		return usr.Items, nil
 	}
-	if !ok {
-		s.db.Set("users", "root", User{"root", "root", []string{"root"}})
-		log.Print("Created default root user with password \"root\"")
+	allowed, err := getGroupRec(cl, "Group_"+strings.Title(cl.Username))
+	if err == nil {
+		usr := User{cl.Username, cl.Password, allowed}
+		s.PermCache.Set(cl.Username, usr)
+		s.startRefresh(cl)
 	}
+	return allowed, err
+}
 
-	return nil
+func (s *server) startRefresh(cl *openhab.Client) {
+	go func() {
+		for {
+			<-time.After(30 * time.Second)
+			allowed, err := getGroupRec(cl, "Group_"+strings.Title(cl.Username))
+			if err == nil {
+				usr := User{cl.Username, cl.Password, allowed}
+				s.PermCache.Set(cl.Username, usr)
+			} else {
+				s.PermCache.Delete(cl.Username)
+				return
+			}
+		}
+	}()
+}
+
+func filterPage(page *openhab.SitemapPage, allowed openhab.Items) {
+	var wsNew openhab.Widgets
+	if page.Widgets != nil {
+		for _, v := range page.Widgets {
+			if v.Item != nil {
+				if inItems(v.Item.Name, allowed) {
+					wsNew = append(wsNew, v)
+				}
+			} else if v.LinkedPage != nil {
+				filterPage(v.LinkedPage, allowed)
+				if v.LinkedPage.Widgets != nil {
+					if len(v.LinkedPage.Widgets) != 0 {
+						wsNew = append(wsNew, v)
+					}
+				} else {
+					wsNew = append(wsNew, v)
+				}
+			}
+		}
+	}
+	page.Widgets = wsNew
 }
