@@ -9,9 +9,9 @@ import (
 )
 
 type User struct {
-	Userame, Password string
-	Items             openhab.Items
-	Expire            time.Time
+	Username, Password string
+	Items              openhab.Items
+	Expire             time.Time
 }
 
 func inItems(it string, its []openhab.Item) bool {
