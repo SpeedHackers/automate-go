@@ -37,7 +37,7 @@ func (i *HookCmds) UnmarshalJSON(bs []byte) error {
 }
 
 func (s *server) hooks(w http.ResponseWriter, r *http.Request) {
-	client := makeClient(r, s.OHURL)
+	client := s.makeClient(r, s.OHURL)
 	cmd := &Hook{}
 	err := json.NewDecoder(r.Body).Decode(cmd)
 	if err != nil {
@@ -55,7 +55,7 @@ func (s *server) hooks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) yo(w http.ResponseWriter, r *http.Request) {
-	client := makeClient(r, s.OHURL)
+	client := s.makeClient(r, s.OHURL)
 	name := mux.Vars(r)["item"]
 	item, err := client.Item(name)
 	if err != nil {

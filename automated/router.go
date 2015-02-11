@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 
+	"github.com/Pursuit92/httputil"
 	"github.com/Pursuit92/syncmap"
 	"github.com/gorilla/mux"
 )
@@ -25,7 +26,7 @@ type server struct {
 
 func (s *server) setupRoutes() http.Handler {
 	r := mux.NewRouter()
-	r.HandleFunc("/yo/items/{item}", loggerFunc(s.yo)).Methods("GET")
+	r.HandleFunc("/yo/items/{item}", s.yo).Methods("GET")
 	r.HandleFunc("/rest", s.rest).
 		Methods("GET")
 	r.PathPrefix("/images/").
@@ -33,36 +34,36 @@ func (s *server) setupRoutes() http.Handler {
 		http.FileServer(http.Dir(s.Static+"/images/"))))
 	r.HandleFunc("/hooks", s.hooks).Methods("POST")
 	rest := r.PathPrefix("/rest").Subrouter()
-	rest.HandleFunc("/", loggerFunc(s.rest)).
+	rest.HandleFunc("/", s.rest).
 		Methods("GET")
-	rest.HandleFunc("/items", loggerFunc(s.getItems)).
+	rest.HandleFunc("/items", s.getItems).
 		Methods("GET")
-	rest.HandleFunc("/sitemaps", loggerFunc(s.getMaps)).
+	rest.HandleFunc("/sitemaps", s.getMaps).
 		Methods("GET")
 
 	maps := rest.PathPrefix("/sitemaps").Subrouter()
-	maps.HandleFunc("/", loggerFunc(s.getMaps)).
+	maps.HandleFunc("/", s.getMaps).
 		Methods("GET")
-	maps.HandleFunc("/{map}", loggerFunc(s.getMap)).
+	maps.HandleFunc("/{map}", s.getMap).
 		Methods("GET")
-	maps.HandleFunc("/{map}/{page}", loggerFunc(s.getPage)).
+	maps.HandleFunc("/{map}/{page}", s.getPage).
 		Methods("GET")
 	maps.HandleFunc("/{map}/{page}", s.getPageStreaming).
 		Headers("X-Atmosphere-Transport", "streaming").
 		Methods("GET")
 
 	items := rest.PathPrefix("/items").Subrouter()
-	items.HandleFunc("/", loggerFunc(s.getItems)).
+	items.HandleFunc("/", s.getItems).
 		Methods("GET")
 	items.HandleFunc("/{item}", s.getItemStreaming).
 		Headers("X-Atmosphere-Transport", "streaming").
 		Methods("GET")
-	items.HandleFunc("/{item}", loggerFunc(s.getItem)).
+	items.HandleFunc("/{item}", s.getItem).
 		Methods("GET")
-	items.HandleFunc("/{item}", loggerFunc(s.cmdItem)).
+	items.HandleFunc("/{item}", s.cmdItem).
 		Methods("POST")
 
-	return r
+	return httputil.Logger(r)
 }
 
 func (s *server) Run() error {

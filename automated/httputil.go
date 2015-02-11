@@ -13,6 +13,11 @@ type BasicAuth struct {
 	Username, Password string
 }
 
+type ohClient struct {
+	*openhab.Client
+	FakeUser string
+}
+
 func getBasicAuth(r *http.Request) BasicAuth {
 	var userpass string
 	auth := r.Header.Get("Authorization")
@@ -56,9 +61,22 @@ func getEncoding(r *http.Request) (Encoding, string) {
 	return encode, str
 }
 
-func makeClient(r *http.Request, url string) *openhab.Client {
+func (s *server) makeClient(r *http.Request, url string) ohClient {
 	auth := getBasicAuth(r)
-	return openhab.NewClient(url, auth.Username, auth.Password, false)
+	username := auth.Username
+	password := auth.Password
+	fakeUser := ""
+	usrInt, ok := s.PermCache.Get(username)
+	if ok {
+		usr := usrInt.(User)
+		if usr.FakeUser == username && usr.FakePass == password {
+			fakeUser = username
+			username = usr.Username
+			password = usr.Password
+		}
+	}
+
+	return ohClient{openhab.NewClient(url, username, password, false), fakeUser}
 }
 
 func (s *server) finish(r *http.Request, w http.ResponseWriter, data interface{}) error {

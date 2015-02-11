@@ -10,6 +10,7 @@ import (
 
 type User struct {
 	Username, Password string
+	FakeUser, FakePass string
 	Items              openhab.Items
 	Expire             time.Time
 }
@@ -23,7 +24,7 @@ func inItems(it string, its []openhab.Item) bool {
 	return false
 }
 
-func getGroupRec(cl *openhab.Client, name string) (openhab.Items, error) {
+func getGroupRec(cl ohClient, name string) (openhab.Items, error) {
 	topGrp, err := cl.Item(name)
 	if err != nil {
 		return nil, err
@@ -47,8 +48,18 @@ func getGroupRec(cl *openhab.Client, name string) (openhab.Items, error) {
 	return items, nil
 }
 
-func (s *server) getAllowed(cl *openhab.Client) ([]openhab.Item, error) {
-	usrInt, ok := s.PermCache.Get(cl.Username)
+func (s *server) getAllowed(cl ohClient) ([]openhab.Item, error) {
+	var usrInt interface{}
+	var ok bool
+	if cl.FakeUser != "" {
+		usrInt, ok = s.PermCache.Get(cl.FakeUser)
+		if ok {
+			usr := usrInt.(User)
+			return usr.Items, nil
+		}
+		return nil, fmt.Errorf("User not in cache")
+	}
+	usrInt, ok = s.PermCache.Get(cl.Username)
 	if ok {
 		usr := usrInt.(User)
 		if usr.Password != cl.Password {
@@ -68,7 +79,7 @@ func (s *server) getAllowed(cl *openhab.Client) ([]openhab.Item, error) {
 	return allowed, err
 }
 
-func (s *server) startRefresh(cl *openhab.Client, usr User) {
+func (s *server) startRefresh(cl ohClient, usr User) {
 	go func() {
 		for {
 			<-time.After(1 * time.Minute)

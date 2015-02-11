@@ -9,7 +9,7 @@ import (
 )
 
 func (s *server) rest(w http.ResponseWriter, r *http.Request) {
-	client := makeClient(r, s.OHURL)
+	client := s.makeClient(r, s.OHURL)
 
 	data, err := client.Base()
 	if err != nil {
@@ -21,7 +21,7 @@ func (s *server) rest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getMaps(w http.ResponseWriter, r *http.Request) {
-	client := makeClient(r, s.OHURL)
+	client := s.makeClient(r, s.OHURL)
 
 	data, err := client.Sitemaps()
 	if err != nil {
@@ -33,7 +33,7 @@ func (s *server) getMaps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getMap(w http.ResponseWriter, r *http.Request) {
-	client := makeClient(r, s.OHURL)
+	client := s.makeClient(r, s.OHURL)
 	allowed, err := s.getAllowed(client)
 	if err != nil {
 		Error(w, err)
@@ -53,7 +53,7 @@ func (s *server) getMap(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getPage(w http.ResponseWriter, r *http.Request) {
-	client := makeClient(r, s.OHURL)
+	client := s.makeClient(r, s.OHURL)
 	allowed, err := s.getAllowed(client)
 	if err != nil {
 		Error(w, err)
@@ -88,7 +88,7 @@ func (s *server) getPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getPageStreaming(w http.ResponseWriter, r *http.Request) {
-	client := makeClient(r, s.OHURL)
+	client := s.makeClient(r, s.OHURL)
 
 	vars := mux.Vars(r)
 	smap := vars["map"]
@@ -111,7 +111,7 @@ func (s *server) getPageStreaming(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getItem(w http.ResponseWriter, r *http.Request) {
-	client := makeClient(r, s.OHURL)
+	client := s.makeClient(r, s.OHURL)
 
 	item := mux.Vars(r)["item"]
 	allowed, err := s.getAllowed(client)
@@ -146,7 +146,7 @@ func (s *server) getItem(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (s *server) getItemStreaming(w http.ResponseWriter, r *http.Request) {
-	client := makeClient(r, s.OHURL)
+	client := s.makeClient(r, s.OHURL)
 	item := mux.Vars(r)["item"]
 	allowed, err := s.getAllowed(client)
 	if err != nil {
@@ -176,7 +176,7 @@ func (s *server) getItemStreaming(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) cmdItem(w http.ResponseWriter, r *http.Request) {
-	client := makeClient(r, s.OHURL)
+	client := s.makeClient(r, s.OHURL)
 	item := mux.Vars(r)["item"]
 	allowed, err := s.getAllowed(client)
 	if err != nil {
@@ -207,7 +207,7 @@ func (s *server) cmdItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getItems(w http.ResponseWriter, r *http.Request) {
-	client := makeClient(r, s.OHURL)
+	client := s.makeClient(r, s.OHURL)
 	allowed, err := s.getAllowed(client)
 	if err != nil {
 		Error(w, err)
